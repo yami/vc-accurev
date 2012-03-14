@@ -525,9 +525,9 @@ If UPDATE is non-nil, then update (resynch) any affected buffers."
 
 (defun vc-accurev--parse-xml (obj &optional buffer error-function function &rest init-args)
   "Simple case flow for parsing XML responses with objects"
-  (cond ((null buffer) (setq buffer (current-buffer)))
-        ((null error-function) (setq error-function 'identity))
-        ((null function) (setq function 'identity)))
+  (progn (or buffer (setq buffer (current-buffer)))
+         (or error-function (setq error-function 'identity))
+         (or (setq function 'identity)))
   (condition-case var
       (with-current-buffer buffer
         (let ((results '())
@@ -544,9 +544,7 @@ If UPDATE is non-nil, then update (resynch) any affected buffers."
 (defun vc-accurev--get-status-for-file (file &optional flags function)
   "Retrieve status information about a single FILE."
   (let ((status (vc-accurev--get-status file nil flags function)))
-    (if (= (length status) 1)
-        (car x)
-      x)))
+    (car status)))
 
 (defun vc-accurev--get-status (files &optional recursive flags function)
   "Retrieve all status information about FILES.  This drives other information services."
@@ -682,7 +680,7 @@ If UPDATE is non-nil, then update (resynch) any affected buffers."
    (version :init-arg :version))
   :documentation "")
 
-(defclass vc-accurev-status ()
+(defclass vc-accurev-status (vc-accurev-object)
   ((file :init-arg :file)
    (real-revision :init-arg :real-revision)
    (named-revision :init-arg :named-revision)
@@ -709,7 +707,7 @@ If UPDATE is non-nil, then update (resynch) any affected buffers."
 (defmethod vc-accurev--parse ((status vc-accurev-status) element)
   "Set slot values from the supplied output element"
   (let ((stati (vc-accurev--parse-nested-statuses (xml-get-attribute-or-nil element 'status))))
-    (oset status file (xml-get-attribute-or-nil element 'location)
+    (oset status file (xml-get-attribute-or-nil element 'location))
     (oset status real-revision (xml-get-attribute-or-nil element 'Real))
     (oset status named-revision (xml-get-attribute-or-nil element 'namedVersion))
     (oset status virtual-revison (xml-get-attribute-or-nil element 'Virtual))
@@ -720,7 +718,7 @@ If UPDATE is non-nil, then update (resynch) any affected buffers."
     (oset status size (xml-get-attribute-or-nil element 'size))
     (oset status directory-p (xml-get-attribute-or-nil element 'dir))
     (oset status hierarchy-type (xml-get-attribute-or-nil element 'hierType))
-    (oset status modified-time (xml-get-attribute-or-nil element 'modTime)))))
+    (oset status modified-time (xml-get-attribute-or-nil element 'modTime))))
 
 (provide 'vc-accurev)
 
