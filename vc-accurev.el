@@ -15,6 +15,7 @@
   (require 'vc)
   (require 'cl))
 
+(require 'eieio)
 (require 'xml)
 
 (add-to-list 'vc-handled-backends 'Accurev)
