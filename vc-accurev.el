@@ -431,9 +431,10 @@ if there is no revision corresponding to the current line."
 ;;;
 (defun vc-accurev-root (file)
   "Return the root of the VC controlled hierarchy for file."
-  (let (root)
+  (let ((pathname (expand-file-name file))
+        root)
     (mapc (lambda (x)
-	    (if (string-match (regexp-quote (vc-accurev-workspace->location x)) file)
+	    (if (string-match (regexp-quote (vc-accurev-workspace->location x)) pathname)
 		(setq root (vc-accurev-workspace->location x))))
 	  (vc-accurev--get-workspaces))
     root))
