@@ -50,6 +50,25 @@
 		 (repeat :tag "Argument List" :value ("") string))
   :group 'vc-accurev)
 
+(defcustom vc-accurev-always-show-workspaces t
+  "Bool value specifying whether we invoke \"accurev show
+  wspaces\" whenever we call vc-accurev--get-workspaces. Consider
+  to set it to Yes if you have a slow accurev server access."
+  :type '(choice (const :tag "Yes" t)
+                 (const :tag "No" nil))
+  :group 'vc-accurev)
+
+;; Global variables
+(defvar vc-accurev-workspaces '()
+  "A list of cached workspaces. If
+vc-accurev-always-show-workspaces is t, this value is updated by
+every vc-accurev--get-workspaces call. Otherwise the value will
+not be changed after the first vc-accurev--get-workspaces
+call. Therefore the value might be stale when a new workspace is
+created outside of emacs. You may refresh this list by
+calling (vc-accurev--get-workspaces t)")
+
+
 ;; BACKEND PROPERTIES
 (defun vc-accurev-revision-granularity ()
   "Takes no arguments.  Returns either 'file or 'repository.  Backends
@@ -578,24 +597,29 @@ If UPDATE is non-nil, then update (resynch) any affected buffers."
             (vc-file-setprop file 'vc-working-revision (oref status named-revision))))
           status-list)))
 
-(defun vc-accurev--get-workspaces (&optional function)
-  (condition-case ()
-      (let ((results '())
-	    str)
-	(with-temp-buffer
-	  (vc-accurev-command "show" t 0 nil "wspaces" "-fx")
-	  (setq str (xml-parse-region (point-min) (point-max))))
-	(dolist (element (xml-get-children (xml-node-name str) 'Element))
-	  (let ((wspace (vc-accurev-workspace-create)))
-	    (add-to-list 'results wspace 't)
-	    (setf (vc-accurev-workspace->name wspace) (xml-get-attribute-or-nil element 'Name))
-	    (setf (vc-accurev-workspace->location wspace) (xml-get-attribute-or-nil element 'Storage))
-	    (setf (vc-accurev-workspace->host wspace) (xml-get-attribute-or-nil element 'Host))
-	    (setf (vc-accurev-workspace->stream wspace) (xml-get-attribute-or-nil element 'Stream))
-	    (setf (vc-accurev-workspace->depot wspace) (xml-get-attribute-or-nil element 'depot))
-	    (setf (vc-accurev-workspace->user wspace) (xml-get-attribute-or-nil element 'user_name))))
-	(funcall (if (null function) 'identity function) results))
-    (error)))
+(defun vc-accurev--get-workspaces (&optional refresh)
+  (if (and (not vc-accurev-always-show-workspaces)
+           (not refresh)
+           vc-accurev-workspaces)
+      vc-accurev-workspaces
+    (condition-case ()
+        (let (str)
+          (setq vc-accurev-workspaces '())
+          (with-temp-buffer
+            (vc-accurev-command "show" t 0 nil "wspaces" "-fx")
+            (setq str (xml-parse-region (point-min) (point-max))))
+          (dolist (element (xml-get-children (xml-node-name str) 'Element))
+            (let ((wspace (vc-accurev-workspace-create)))
+              (add-to-list 'vc-accurev-workspaces wspace 't)
+              (setf (vc-accurev-workspace->name wspace) (xml-get-attribute-or-nil element 'Name))
+              (setf (vc-accurev-workspace->location wspace) (xml-get-attribute-or-nil element 'Storage))
+              (setf (vc-accurev-workspace->host wspace) (xml-get-attribute-or-nil element 'Host))
+              (setf (vc-accurev-workspace->stream wspace) (xml-get-attribute-or-nil element 'Stream))
+              (setf (vc-accurev-workspace->depot wspace) (xml-get-attribute-or-nil element 'depot))
+              (setf (vc-accurev-workspace->user wspace) (xml-get-attribute-or-nil element 'user_name))))
+          vc-accurev-workspaces)
+      (error))))
+
 
 (defun vc-accurev--parse-nested-statuses (stati)
   "Convert a list of accurev statuses into vc states"
