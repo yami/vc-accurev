@@ -572,9 +572,10 @@ If UPDATE is non-nil, then update (resynch) any affected buffers."
     (mapc (lambda (status)
             (let ((file (if (listp files)
                             (vc-accurev--find-same-file (oref status file) files)
-                          files))
-                  (revision (oref status named-revision)))
-            (vc-file-setprop file 'vc-latest-revision revision)))
+                          files)))
+            (vc-file-setprop file 'vc-latest-revision (oref status named-revision))
+            (vc-file-setprop file 'vc-state (oref status status))
+            (vc-file-setprop file 'vc-working-revision (oref status named-revision))))
           status-list)))
 
 (defun vc-accurev--get-workspaces (&optional function)
