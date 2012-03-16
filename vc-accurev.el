@@ -18,7 +18,12 @@
 (require 'eieio)
 (require 'xml)
 
-(add-to-list 'vc-handled-backends 'Accurev)
+;; Append Accurev to the vc-handled-backends. 
+;; Some SCM tools, such as CVS, do not need to query server for certain 
+;; information, but Accurev frequently queries the server. Therefore we
+;; put Accurev at the end of vc-handled-backends to hope other/default
+;; VC backends can handle cheaper operations before reaching us.
+(add-to-list 'vc-handled-backends 'Accurev t)
 
 ;; Clear the vc cache to force vc-call to check again and discover new
 ;; fuctions when we reload this file.
@@ -548,11 +553,29 @@ If UPDATE is non-nil, then update (resynch) any affected buffers."
   (let ((status (vc-accurev--get-status file nil flags function)))
     (car status)))
 
+(defun vc-accurev--find-same-file (file file-list)
+  "Find the entry in FILE-LIST whose full pathname is same as FILE."
+  (let ((pathname (expand-file-name file))
+        matched-file file-elem)
+    (while (and file-list (not matched-file))
+      (setq file-elem (pop file-list))
+      (when (string= pathname (expand-file-name file-elem))
+        (setq matched-file file-elem)))
+    matched-file))
+
 (defun vc-accurev--get-status (files &optional recursive flags function)
   "Retrieve all status information about FILES.  This drives other information services."
-  (with-temp-buffer
-    (vc-accurev-command "stat" t 0 files "-fxr" (when recursive "-R") flags)
-    (vc-accurev--parse-xml 'vc-accurev-status nil nil function)))
+  (let ((status-list
+         (with-temp-buffer
+           (vc-accurev-command "stat" t 0 files "-fxr" (when recursive "-R") flags)
+           (vc-accurev--parse-xml 'vc-accurev-status nil nil function))))
+    (mapc (lambda (status)
+            (let ((file (if (listp files)
+                            (vc-accurev--find-same-file (oref status file) files)
+                          files))
+                  (revision (oref status named-revision)))
+            (vc-file-setprop file 'vc-latest-revision revision)))
+          status-list)))
 
 (defun vc-accurev--get-workspaces (&optional function)
   (condition-case ()
