@@ -409,11 +409,24 @@ if BUFFER is nil. If SHORTLOG is true insert a short version of the log."
 ;;; Annotate
 ;;;
 
+;; Accurev 5.2.0.0 reports error when executing following command
+;;    $ accurev annotate -fuvd -v <version spect> somefile.c
+;; Because Accurev expects a depot-relative path instead of a relative
+;; path such as 'somefile.c'.
+;;
+;; We cannot use depot-relative path as the 'FILE-OR-LIST' to vc-do-command,
+;; because vc-do-command will translate the filename into relative pathname.
+;; 
+;; The workaround here is to set FILE-OR-LIST to nil and feed the depot-relative
+;; path as FLAGS to vc-do-command, since vc-do-command does not change FLAGS.
 (defun vc-accurev-annotate-command (file buffer &optional version)
   "Execute \"accurev annotate\" on FILE, inserting the contents in BUFFER.
 Optional arg VERSION is a version to annotate from."
-  (vc-accurev-command "annotate" buffer 0 file "-fuvd" (if version
-							  (concat "-v" version))))
+  (let ((path (vc-accurev-depot-relative-path file)))
+    (vc-accurev-command "annotate" buffer 0 nil "-fuvd"
+                        (if version
+                            (concat "-v" version)) path)))
+
 
 (defconst vc-accurev-annotate-time-regex "^\\S-+\\s-+\\S-+\\s-+\\([0-9]+\\)/\\([0-9]+\\)/\\([0-9]+\\)\\s-+\\([0-9]+\\):\\([0-9]+\\):\\([0-9]+\\)")
 
@@ -492,6 +505,14 @@ revision exists."
       (if (not (null anc))
           (format "%s/%s" (oref anc stream) (oref anc version))
         anc))))
+
+(defun vc-accurev-depot-relative-path (file)
+  "Return depot-relative-path given the filesystem path FILE."
+  (let ((root (vc-accurev-root file))
+        (path (expand-file-name file)))
+    (concat "/." (substring path (length root)))))
+
+
 ;;;
 ;;; Snapshot system
 ;;;
